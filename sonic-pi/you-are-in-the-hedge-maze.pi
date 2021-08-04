@@ -1,0 +1,154 @@
+# You Are In The Hedge Maze
+# an attempt at live-coded dungeon synth
+# A performance can be heard at https://soundcloud.com/m199h/you-are-in-the-hedge-maze
+# hope you enjoy!
+
+#######
+# Function s& constants
+#
+
+# Pad constants
+pad_pattern = (ring :D3,:C3)
+pad_amp = 1
+vwl_pattern =  (ring 4, 2, 1, 0).stretch(4)
+
+# Slow melodic pattern constants
+pattern1 = (ring :A5, :G5, :A5, :G5)
+pattern2 = (ring :F5, :G5, :Eb5, :G5)
+pattern3 = (ring :Bb5, :A5, :G5, :Eb5)
+pattern4 = (ring :D5, :C5, :Bb4, :A4)
+slow_melodic_pattern = pattern1
+slow_melodic_amp = 0
+
+# Faster melodic pattern constants
+filter_sweep = (line 100, 60, steps: 12).mirror
+faster_pattern_amp = 0
+
+# Bell & chip pattern constants
+bell_pattern_factor = 1
+bell_pattern = (ring :A6, :G6, :F6, :Bb6)
+bell_pattern_amp = 0
+chip_amp = 0
+
+# Deep rumbles constants
+deep_rumbles_amp = 0
+
+define :pad_player do |pad_note, noise, vowel, octave|
+  if vowel > 0
+    with_fx :vowel, vowel_sound: vowel do
+      play pad_note, sustain: 8, noise: noise
+      if (octave != 0)
+        play pad_note + octave * 12, sustain:8, noise: noise, amp: pad_amp
+      end
+      sleep 8
+    end
+  else
+    play pad_note, sustain: 8, noise: noise
+    if (octave != 0)
+      play pad_note + octave * 12, sustain:8, noise:noise
+    end
+    sleep 8
+  end
+end
+
+
+define :pad_player_with_krush do |note, vowel, k|
+  if k >0
+    with_fx :krush, gain: k do
+      with_synth :hollow do
+        pad_player note, 1, vowel, 1
+      end
+    end
+  else
+    
+    with_synth :hollow do
+      pad_player note, 1, vowel, 1
+    end
+  end
+end
+
+#######
+
+
+live_loop :slow_melodic_pattern do
+  with_fx :echo, amp: slow_melodic_amp do
+    with_fx :reverb do
+      with_synth :blade do
+        2.times do
+          play slow_melodic_pattern.tick, sustain: 7
+          sleep 7
+          play slow_melodic_pattern.tick, sustain: 1
+          sleep 1
+        end
+      end
+    end
+  end
+end
+
+live_loop :deep_rumbles do
+  with_fx :echo, amp: deep_rumbles_amp do
+    with_fx :krush, gain:8 do
+      sample :ambi_glass_hum, pitch:-24, pitch_stretch:8
+      sleep 8
+    end
+  end
+end
+
+live_loop :faster_melodic_pattern do
+  with_fx :echo, amp:faster_pattern_amp do
+    with_fx :rlpf do
+      with_synth :prophet do
+        4.times do
+          play :D4, cutoff: filter_sweep.tick, pan: 0.5
+          sleep 1
+          play :A3, cutoff: filter_sweep.tick, pan: 0
+          sleep 0.5
+          play :Bb3, cutoff: filter_sweep.tick, pan: -0.5
+          sleep 0.5
+          play :C4, cutoff: filter_sweep.tick
+          sleep 2
+        end
+      end
+    end
+  end
+end
+
+live_loop :bell_witch do
+  with_fx :reverb, amp: bell_pattern_amp do
+    with_synth :pretty_bell  do
+      for i in 1..(8 * bell_pattern_factor)
+        current_note = bell_pattern.tick
+        for j in 1..bell_pattern_factor
+          offset_factor = 0
+          if (bell_pattern_factor > 1) and (one_in(2 * bell_pattern_factor))
+            offset_factor = [-36, -24,-12,12].choose
+          end
+          play current_note + offset_factor , decay: 0.5
+          sleep 1.0 / bell_pattern_factor
+        end
+      end
+    end
+  end
+end
+
+
+live_loop :chip_led do
+  with_fx :pitch_shift, pitch:-12 do
+    with_fx :reverb, amp: chip_amp do
+      with_synth :chiplead  do
+        sleep 0.1
+        for i in 0..6
+          play bell_pattern.tick, decay: 0.5
+          sleep 1
+        end
+        play bell_pattern.tick, decay:  0.5
+        sleep 0.95
+      end
+    end
+  end
+end
+
+live_loop :pad do
+  t = tick
+  pad_player_with_krush pad_pattern[t], vwl_pattern[t], 4
+end
